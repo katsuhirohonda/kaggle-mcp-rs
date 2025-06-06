@@ -1,3 +1,9 @@
+//! Main entry point for the kaggle-mcp-rs server binary.
+//! 
+//! This binary starts an MCP server that communicates over stdio,
+//! allowing Claude Desktop and other MCP clients to interact with
+//! the Kaggle API.
+
 use anyhow::Result;
 use kaggle_mcp_rs::server::KaggleMcpServer;
 use rmcp::{transport::stdio, ServiceExt};
@@ -5,6 +11,9 @@ use tracing_subscriber::{self, EnvFilter};
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Load .env file if it exists
+    dotenv::dotenv().ok();
+
     // Initialize tracing to stderr to avoid interfering with stdio transport
     tracing_subscriber::fmt()
         .with_env_filter(

@@ -1,3 +1,9 @@
+//! MCP server implementation for Kaggle API integration.
+//! 
+//! This module provides the Model Context Protocol (MCP) server that exposes
+//! Kaggle API functionality as tools that can be used by Claude AI and other
+//! MCP-compatible clients.
+
 use crate::client::KaggleClient;
 use crate::models::AuthenticationResponse;
 use rmcp::{
@@ -8,6 +14,10 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+#[cfg(test)]
+mod tests;
+
+/// Parameters for the authenticate tool.
 #[derive(Debug, Deserialize, Serialize, schemars::JsonSchema)]
 pub struct AuthenticateParams {
     #[schemars(description = "Your Kaggle username")]
@@ -16,6 +26,26 @@ pub struct AuthenticateParams {
     pub kaggle_key: String,
 }
 
+/// The main MCP server implementation for Kaggle API integration.
+/// 
+/// This server provides tools for interacting with the Kaggle API through
+/// the Model Context Protocol. It manages a Kaggle API client and exposes
+/// various tools for authentication, competitions, datasets, and more.
+/// 
+/// # Example
+/// 
+/// ```no_run
+/// use kaggle_mcp_rs::server::KaggleMcpServer;
+/// use rmcp::{transport::stdio, ServiceExt};
+/// 
+/// #[tokio::main]
+/// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+///     let server = KaggleMcpServer::new();
+///     let service = server.serve(stdio()).await?;
+///     service.waiting().await?;
+///     Ok(())
+/// }
+/// ```
 #[derive(Clone)]
 pub struct KaggleMcpServer {
     client: Arc<RwLock<KaggleClient>>,
@@ -23,12 +53,28 @@ pub struct KaggleMcpServer {
 
 #[tool(tool_box)]
 impl KaggleMcpServer {
+    /// Creates a new instance of the Kaggle MCP server.
+    /// 
+    /// Initializes the server with a new Kaggle API client.
     pub fn new() -> Self {
         Self {
             client: Arc::new(RwLock::new(KaggleClient::new())),
         }
     }
 
+    /// Authenticates with the Kaggle API using the provided credentials.
+    /// 
+    /// This tool allows users to authenticate with their Kaggle username and API key.
+    /// The credentials can be obtained from the Kaggle account settings page.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `params` - Authentication parameters containing username and API key
+    /// 
+    /// # Returns
+    /// 
+    /// Returns a success message if authentication is successful, or an error
+    /// if the credentials are invalid.
     #[tool(description = "Authenticate with the Kaggle API using your username and API key")]
     async fn authenticate(
         &self,
