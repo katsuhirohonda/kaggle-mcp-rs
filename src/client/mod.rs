@@ -2,6 +2,7 @@ use crate::models::{Error, KaggleCredentials, KaggleConfig};
 use reqwest::{Client, RequestBuilder};
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use tracing::{debug, info, warn, error};
 
 #[cfg(test)]
 mod tests;
@@ -11,6 +12,7 @@ const KAGGLE_API_BASE: &str = "https://www.kaggle.com/api/v1";
 pub struct KaggleClient {
     http_client: Client,
     credentials: Arc<RwLock<Option<KaggleCredentials>>>,
+    #[allow(dead_code)]
     config: Arc<RwLock<KaggleConfig>>,
     #[cfg(test)]
     api_base_override: Option<String>,
@@ -37,6 +39,9 @@ impl KaggleClient {
     }
 
     pub async fn authenticate(&self, username: String, key: String) -> Result<(), Error> {
+        info!("Authenticating with Kaggle API");
+        debug!("Username: {}", username);
+        
         // Test authentication by making a simple API call
         #[cfg(test)]
         let test_url = {
@@ -49,6 +54,9 @@ impl KaggleClient {
         };
         #[cfg(not(test))]
         let test_url = format!("{}/competitions/list", KAGGLE_API_BASE);
+        
+        debug!("Testing authentication with URL: {}", test_url);
+        
         let response = self.http_client
             .get(&test_url)
             .basic_auth(&username, Some(&key))
@@ -56,6 +64,7 @@ impl KaggleClient {
             .await?;
 
         if response.status().is_success() {
+            info!("Authentication successful");
             let mut creds = self.credentials.write().await;
             *creds = Some(KaggleCredentials { username: username.clone(), key: key.clone() });
             
@@ -69,9 +78,11 @@ impl KaggleClient {
             
             Ok(())
         } else {
+            let status = response.status();
+            error!("Authentication failed with status: {}", status);
             Err(Error::AuthenticationError(format!(
                 "Invalid credentials: {}",
-                response.status()
+                status
             )))
         }
     }
@@ -81,11 +92,14 @@ impl KaggleClient {
     }
 
     async fn save_credentials(&self, username: &str, key: &str) -> Result<(), Error> {
+        info!("Saving credentials to kaggle.json");
+        
         let kaggle_dir = directories::UserDirs::new()
             .ok_or_else(|| Error::Other("Could not determine home directory".to_string()))?
             .home_dir()
             .join(".kaggle");
 
+        debug!("Creating directory: {:?}", kaggle_dir);
         tokio::fs::create_dir_all(&kaggle_dir).await?;
 
         let kaggle_json = serde_json::json!({
@@ -94,6 +108,7 @@ impl KaggleClient {
         });
 
         let kaggle_json_path = kaggle_dir.join("kaggle.json");
+        debug!("Writing credentials to: {:?}", kaggle_json_path);
         tokio::fs::write(&kaggle_json_path, serde_json::to_string_pretty(&kaggle_json)?).await?;
 
         // Set file permissions to 0o600 on Unix
@@ -104,19 +119,40 @@ impl KaggleClient {
             let mut permissions = metadata.permissions();
             permissions.set_mode(0o600);
             tokio::fs::set_permissions(&kaggle_json_path, permissions).await?;
+            debug!("Set file permissions to 0o600");
         }
 
+        info!("Credentials saved successfully");
         Ok(())
     }
 
     pub async fn load_credentials(&self) -> Result<(), Error> {
-        let kaggle_json_path = directories::UserDirs::new()
-            .ok_or_else(|| Error::Other("Could not determine home directory".to_string()))?
-            .home_dir()
-            .join(".kaggle")
-            .join("kaggle.json");
+        info!("Loading Kaggle credentials");
+        
+        // First, check environment variables
+        if let (Ok(username), Ok(key)) = (
+            std::env::var("KAGGLE_USERNAME"),
+            std::env::var("KAGGLE_KEY"),
+        ) {
+            info!("Found credentials in environment variables");
+            let mut credentials = self.credentials.write().await;
+            *credentials = Some(KaggleCredentials { username, key });
+            return Ok(());
+        }
+        
+        // Then, check kaggle.json file
+        let kaggle_json_path = match directories::UserDirs::new() {
+            Some(dirs) => dirs.home_dir().join(".kaggle").join("kaggle.json"),
+            None => {
+                warn!("Could not determine home directory");
+                return Err(Error::NotAuthenticated);
+            }
+        };
+
+        debug!("Checking for kaggle.json at: {:?}", kaggle_json_path);
 
         if kaggle_json_path.exists() {
+            info!("Found kaggle.json file");
             let content = tokio::fs::read_to_string(&kaggle_json_path).await?;
             let creds: serde_json::Value = serde_json::from_str(&content)?;
             
@@ -131,20 +167,12 @@ impl KaggleClient {
                 });
                 Ok(())
             } else {
+                error!("Invalid kaggle.json format");
                 Err(Error::Other("Invalid kaggle.json format".to_string()))
             }
         } else {
-            // Check environment variables
-            if let (Ok(username), Ok(key)) = (
-                std::env::var("KAGGLE_USERNAME"),
-                std::env::var("KAGGLE_KEY"),
-            ) {
-                let mut credentials = self.credentials.write().await;
-                *credentials = Some(KaggleCredentials { username, key });
-                Ok(())
-            } else {
-                Err(Error::NotAuthenticated)
-            }
+            warn!("No credentials found in environment variables or kaggle.json");
+            Err(Error::NotAuthenticated)
         }
     }
 

@@ -74,6 +74,10 @@ mod tests {
         let orig_username = std::env::var("KAGGLE_USERNAME").ok();
         let orig_key = std::env::var("KAGGLE_KEY").ok();
         
+        // Clear any existing values first
+        std::env::remove_var("KAGGLE_USERNAME");
+        std::env::remove_var("KAGGLE_KEY");
+        
         // Set test env vars
         std::env::set_var("KAGGLE_USERNAME", "env_user");
         std::env::set_var("KAGGLE_KEY", "env_key");
@@ -82,7 +86,12 @@ mod tests {
         let result = client.load_credentials().await;
         
         // Should succeed with env vars
-        assert!(result.is_ok());
+        if let Err(ref e) = result {
+            eprintln!("Load credentials failed: {:?}", e);
+            eprintln!("KAGGLE_USERNAME: {:?}", std::env::var("KAGGLE_USERNAME"));
+            eprintln!("KAGGLE_KEY: {:?}", std::env::var("KAGGLE_KEY"));
+        }
+        assert!(result.is_ok(), "Failed to load credentials from environment");
         assert!(client.is_authenticated().await);
 
         // Restore original state
@@ -97,10 +106,15 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]  // Add serial to ensure it doesn't interfere with other tests
     async fn test_load_credentials_not_found() {
+        // Save original env state
+        let orig_username = std::env::var("KAGGLE_USERNAME").ok();
+        let orig_key = std::env::var("KAGGLE_KEY").ok();
+        let original_home = std::env::var("HOME").ok();
+        
         // Create a temp directory and point HOME to it
         let temp_dir = TempDir::new().unwrap();
-        let original_home = std::env::var("HOME").ok();
         std::env::set_var("HOME", temp_dir.path());
         
         // Ensure no env vars are set
@@ -117,11 +131,21 @@ mod tests {
             _ => panic!("Expected NotAuthenticated error"),
         }
 
-        // Restore original HOME
+        // Restore original state
         if let Some(home) = original_home {
             std::env::set_var("HOME", home);
         } else {
             std::env::remove_var("HOME");
+        }
+        
+        // Restore env vars
+        match orig_username {
+            Some(val) => std::env::set_var("KAGGLE_USERNAME", val),
+            None => std::env::remove_var("KAGGLE_USERNAME"),
+        }
+        match orig_key {
+            Some(val) => std::env::set_var("KAGGLE_KEY", val),
+            None => std::env::remove_var("KAGGLE_KEY"),
         }
     }
 
