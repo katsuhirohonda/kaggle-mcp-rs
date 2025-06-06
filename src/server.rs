@@ -8,6 +8,9 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+#[cfg(test)]
+mod tests;
+
 #[derive(Debug, Deserialize, Serialize, schemars::JsonSchema)]
 pub struct AuthenticateParams {
     #[schemars(description = "Your Kaggle username")]

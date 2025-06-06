@@ -21,3 +21,9 @@ base64 = "0.22"
 chrono = { version = "0.4", features = ["serde"] }
 thiserror = "1.0"
 schemars = "0.8"
+dotenv = "0.15"
+
+[dev-dependencies]
+mockito = "1.5"
+tempfile = "3.10"
+serial_test = "3.1"

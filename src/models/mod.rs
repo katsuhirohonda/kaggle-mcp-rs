@@ -6,6 +6,9 @@ pub mod model;
 pub mod config;
 pub mod error;
 
+#[cfg(test)]
+mod tests;
+
 pub use auth::*;
 pub use competition::*;
 pub use dataset::*;

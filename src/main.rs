@@ -5,6 +5,9 @@ use tracing_subscriber::{self, EnvFilter};
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Load .env file if it exists
+    dotenv::dotenv().ok();
+
     // Initialize tracing to stderr to avoid interfering with stdio transport
     tracing_subscriber::fmt()
         .with_env_filter(

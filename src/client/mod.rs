@@ -3,12 +3,19 @@ use reqwest::{Client, RequestBuilder};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+#[cfg(test)]
+mod tests;
+
 const KAGGLE_API_BASE: &str = "https://www.kaggle.com/api/v1";
 
 pub struct KaggleClient {
     http_client: Client,
     credentials: Arc<RwLock<Option<KaggleCredentials>>>,
     config: Arc<RwLock<KaggleConfig>>,
+    #[cfg(test)]
+    api_base_override: Option<String>,
+    #[cfg(test)]
+    skip_save_credentials: bool,
 }
 
 impl KaggleClient {
@@ -22,11 +29,25 @@ impl KaggleClient {
             http_client,
             credentials: Arc::new(RwLock::new(None)),
             config: Arc::new(RwLock::new(KaggleConfig::default())),
+            #[cfg(test)]
+            api_base_override: None,
+            #[cfg(test)]
+            skip_save_credentials: false,
         }
     }
 
     pub async fn authenticate(&self, username: String, key: String) -> Result<(), Error> {
         // Test authentication by making a simple API call
+        #[cfg(test)]
+        let test_url = {
+            if let Some(ref base) = self.api_base_override {
+                // For tests, use the override URL directly
+                format!("{}/api/v1/competitions/list", base)
+            } else {
+                format!("{}/competitions/list", KAGGLE_API_BASE)
+            }
+        };
+        #[cfg(not(test))]
         let test_url = format!("{}/competitions/list", KAGGLE_API_BASE);
         let response = self.http_client
             .get(&test_url)
@@ -39,7 +60,13 @@ impl KaggleClient {
             *creds = Some(KaggleCredentials { username: username.clone(), key: key.clone() });
             
             // Save credentials to file
+            #[cfg(test)]
+            if !self.skip_save_credentials {
+                self.save_credentials(&username, &key).await?;
+            }
+            #[cfg(not(test))]
             self.save_credentials(&username, &key).await?;
+            
             Ok(())
         } else {
             Err(Error::AuthenticationError(format!(
@@ -148,5 +175,17 @@ impl KaggleClient {
 
     pub fn api_base() -> &'static str {
         KAGGLE_API_BASE
+    }
+
+    #[cfg(test)]
+    pub fn with_api_base(mut self, base: String) -> Self {
+        self.api_base_override = Some(base);
+        self
+    }
+
+    #[cfg(test)]
+    pub fn skip_save_credentials(mut self) -> Self {
+        self.skip_save_credentials = true;
+        self
     }
 }
