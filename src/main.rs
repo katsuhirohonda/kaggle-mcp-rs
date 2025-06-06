@@ -1,3 +1,9 @@
+//! Main entry point for the kaggle-mcp-rs server binary.
+//! 
+//! This binary starts an MCP server that communicates over stdio,
+//! allowing Claude Desktop and other MCP clients to interact with
+//! the Kaggle API.
+
 use anyhow::Result;
 use kaggle_mcp_rs::server::KaggleMcpServer;
 use rmcp::{transport::stdio, ServiceExt};

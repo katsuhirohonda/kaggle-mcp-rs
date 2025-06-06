@@ -1,18 +1,30 @@
 # kaggle-mcp-rs
 
-Kaggle MCP server implementation in Rust. This server provides access to the Kaggle API through the Model Context Protocol (MCP).
+A Rust implementation of the Kaggle MCP (Model Context Protocol) server that enables Claude AI and other MCP-compatible clients to interact with the Kaggle API.
+
+## Overview
+
+This crate provides a complete MCP server implementation for Kaggle API integration, allowing AI assistants to:
+- Authenticate with Kaggle credentials
+- Browse and download competition data
+- Search and manage datasets
+- Access kernels (notebooks) and models
+- Configure API settings
 
 ## Features
 
-Currently implemented:
-- ✅ Authentication with Kaggle API credentials
+### Currently Implemented
+- ✅ **Authentication**: Secure authentication with Kaggle API credentials
+  - Environment variable support
+  - Credential file management (~/.kaggle/kaggle.json)
+  - Automatic credential loading
 
-Planned:
-- Competition tools (8 tools)
-- Dataset tools (10 tools)
-- Kernel tools (8 tools)
-- Model tools (16 tools)
-- Configuration tools (4 tools)
+### Planned Features
+- 📋 **Competitions** (8 tools): List, search, download data, submit predictions
+- 📊 **Datasets** (10 tools): Search, download, create, update datasets
+- 📓 **Kernels** (8 tools): Search, pull, push notebooks
+- 🤖 **Models** (16 tools): List, download, manage ML models
+- ⚙️ **Configuration** (4 tools): Manage API settings and preferences
 
 ## Installation
 

@@ -1,3 +1,8 @@
+//! Kaggle API client implementation.
+//! 
+//! This module provides a client for interacting with the Kaggle API, including
+//! authentication, credential management, and HTTP request handling.
+
 use crate::models::{Error, KaggleCredentials, KaggleConfig};
 use reqwest::{Client, RequestBuilder};
 use std::sync::Arc;
@@ -7,8 +12,33 @@ use tracing::{debug, info, warn, error};
 #[cfg(test)]
 mod tests;
 
+/// Base URL for the Kaggle API
 const KAGGLE_API_BASE: &str = "https://www.kaggle.com/api/v1";
 
+/// Kaggle API client that handles authentication and HTTP requests.
+/// 
+/// The client manages credentials, configuration, and provides methods for
+/// authenticating with the Kaggle API. It supports loading credentials from
+/// environment variables or from the `~/.kaggle/kaggle.json` file.
+/// 
+/// # Example
+/// 
+/// ```no_run
+/// use kaggle_mcp_rs::client::KaggleClient;
+/// 
+/// #[tokio::main]
+/// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+///     let client = KaggleClient::new();
+///     
+///     // Load credentials from environment or file
+///     client.load_credentials().await?;
+///     
+///     // Or authenticate directly
+///     client.authenticate("username".to_string(), "api_key".to_string()).await?;
+///     
+///     Ok(())
+/// }
+/// ```
 pub struct KaggleClient {
     http_client: Client,
     credentials: Arc<RwLock<Option<KaggleCredentials>>>,
@@ -21,6 +51,9 @@ pub struct KaggleClient {
 }
 
 impl KaggleClient {
+    /// Creates a new Kaggle API client instance.
+    /// 
+    /// Initializes the HTTP client with appropriate user agent and default settings.
     pub fn new() -> Self {
         let http_client = Client::builder()
             .user_agent("kaggle-mcp-rs/0.1.0")
@@ -38,6 +71,20 @@ impl KaggleClient {
         }
     }
 
+    /// Authenticates with the Kaggle API using the provided credentials.
+    /// 
+    /// This method tests the credentials by making a simple API call to the competitions
+    /// endpoint. If successful, the credentials are stored and optionally saved to disk.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `username` - The Kaggle username
+    /// * `key` - The Kaggle API key
+    /// 
+    /// # Returns
+    /// 
+    /// Returns `Ok(())` if authentication is successful, or an error if the credentials
+    /// are invalid or if there's a network issue.
     pub async fn authenticate(&self, username: String, key: String) -> Result<(), Error> {
         info!("Authenticating with Kaggle API");
         debug!("Username: {}", username);
@@ -87,10 +134,25 @@ impl KaggleClient {
         }
     }
 
+    /// Checks if the client has stored credentials.
+    /// 
+    /// # Returns
+    /// 
+    /// Returns `true` if credentials are present, `false` otherwise.
+    /// Note that this doesn't validate the credentials with the API.
     pub async fn is_authenticated(&self) -> bool {
         self.credentials.read().await.is_some()
     }
 
+    /// Saves credentials to the kaggle.json file in the user's home directory.
+    /// 
+    /// The credentials are saved to `~/.kaggle/kaggle.json` with restricted
+    /// permissions (0o600 on Unix systems).
+    /// 
+    /// # Arguments
+    /// 
+    /// * `username` - The Kaggle username
+    /// * `key` - The Kaggle API key
     async fn save_credentials(&self, username: &str, key: &str) -> Result<(), Error> {
         info!("Saving credentials to kaggle.json");
         
@@ -126,6 +188,15 @@ impl KaggleClient {
         Ok(())
     }
 
+    /// Loads Kaggle credentials from environment variables or file.
+    /// 
+    /// This method first checks for `KAGGLE_USERNAME` and `KAGGLE_KEY` environment
+    /// variables. If not found, it looks for credentials in `~/.kaggle/kaggle.json`.
+    /// 
+    /// # Returns
+    /// 
+    /// Returns `Ok(())` if credentials are found and loaded successfully,
+    /// or `Error::NotAuthenticated` if no credentials are found.
     pub async fn load_credentials(&self) -> Result<(), Error> {
         info!("Loading Kaggle credentials");
         
@@ -176,6 +247,19 @@ impl KaggleClient {
         }
     }
 
+    /// Makes an authenticated HTTP request to the Kaggle API.
+    /// 
+    /// This method adds authentication headers to the request and handles
+    /// common error cases.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `builder` - The request builder to execute
+    /// 
+    /// # Returns
+    /// 
+    /// Returns the HTTP response if successful, or an error if authentication
+    /// fails or there's a network issue.
     pub(crate) async fn request(&self, builder: RequestBuilder) -> Result<reqwest::Response, Error> {
         let creds = self.credentials.read().await;
         let creds = creds.as_ref().ok_or(Error::NotAuthenticated)?;
@@ -197,20 +281,27 @@ impl KaggleClient {
         }
     }
 
+    /// Returns a reference to the underlying HTTP client.
+    /// 
+    /// This can be used to make custom requests while reusing the client's
+    /// connection pool.
     pub fn http_client(&self) -> &Client {
         &self.http_client
     }
 
+    /// Returns the base URL for the Kaggle API.
     pub fn api_base() -> &'static str {
         KAGGLE_API_BASE
     }
 
+    /// Test-only method to override the API base URL.
     #[cfg(test)]
     pub fn with_api_base(mut self, base: String) -> Self {
         self.api_base_override = Some(base);
         self
     }
 
+    /// Test-only method to skip saving credentials to disk.
     #[cfg(test)]
     pub fn skip_save_credentials(mut self) -> Self {
         self.skip_save_credentials = true;
