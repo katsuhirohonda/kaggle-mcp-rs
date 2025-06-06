@@ -7,6 +7,7 @@ use chrono::{DateTime, Utc};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Competition {
     /// Competition reference/slug (e.g., "titanic")
+    #[serde(rename = "ref")]
     pub ref_: String,
     /// Competition title
     pub title: String,
@@ -19,9 +20,13 @@ pub struct Competition {
     /// Prize/reward information
     pub reward: Option<String>,
     /// Number of participating teams
+    #[serde(rename = "teamCount")]
     pub team_count: i32,
     /// Whether the current user has entered the competition
+    #[serde(rename = "userHasEntered")]
     pub user_has_entered: bool,
+    /// Competition description
+    pub description: Option<String>,
 }
 
 /// Request parameters for listing competitions.

@@ -307,4 +307,64 @@ impl KaggleClient {
         self.skip_save_credentials = true;
         self
     }
+
+    /// Lists competitions from the Kaggle API.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `search` - Search terms to filter competitions
+    /// * `category` - Filter by category (e.g., "all", "featured", "research")
+    /// * `group` - Filter by group (e.g., "general", "entered", "inClass")
+    /// * `sort_by` - Sort order (e.g., "latestDeadline", "prize", "numberOfTeams")
+    /// * `page` - Page number for pagination
+    /// 
+    /// # Returns
+    /// 
+    /// Returns a vector of competitions matching the specified criteria.
+    pub async fn list_competitions(
+        &self,
+        search: String,
+        category: String,
+        group: String,
+        sort_by: String,
+        page: i32,
+    ) -> Result<Vec<crate::models::Competition>, Error> {
+        let mut url = format!("{}/competitions/list", Self::api_base());
+        
+        // Build query parameters
+        let mut query_params = vec![];
+        if !search.is_empty() {
+            query_params.push(format!("search={}", urlencoding::encode(&search)));
+        }
+        if category != "all" {
+            query_params.push(format!("category={}", category));
+        }
+        if group != "general" {
+            query_params.push(format!("group={}", group));
+        }
+        if sort_by != "latestDeadline" {
+            query_params.push(format!("sortBy={}", sort_by));
+        }
+        if page > 1 {
+            query_params.push(format!("page={}", page));
+        }
+        
+        if !query_params.is_empty() {
+            url = format!("{}?{}", url, query_params.join("&"));
+        }
+        
+        #[cfg(test)]
+        let url = if let Some(ref base) = self.api_base_override {
+            url.replace(Self::api_base(), base)
+        } else {
+            url
+        };
+        
+        debug!("Fetching competitions from: {}", url);
+        
+        let response = self.request(self.http_client.get(&url)).await?;
+        let competitions: Vec<crate::models::Competition> = response.json().await?;
+        
+        Ok(competitions)
+    }
 }

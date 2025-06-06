@@ -26,6 +26,46 @@ pub struct AuthenticateParams {
     pub kaggle_key: String,
 }
 
+/// Parameters for listing competitions.
+#[derive(Debug, Deserialize, Serialize, schemars::JsonSchema)]
+pub struct CompetitionsListParams {
+    #[schemars(description = "Term(s) to search for")]
+    #[serde(default)]
+    pub search: String,
+    
+    #[schemars(description = "Filter by category (all, featured, research, recruitment, gettingStarted, masters, playground)")]
+    #[serde(default = "default_category")]
+    pub category: String,
+    
+    #[schemars(description = "Filter by group (general, entered, inClass)")]
+    #[serde(default = "default_group")]
+    pub group: String,
+    
+    #[schemars(description = "Sort by (grouped, prize, earliestDeadline, latestDeadline, numberOfTeams, recentlyCreated)")]
+    #[serde(default = "default_sort_by")]
+    pub sort_by: String,
+    
+    #[schemars(description = "Page number for results paging")]
+    #[serde(default = "default_page")]
+    pub page: i32,
+}
+
+fn default_category() -> String {
+    "all".to_string()
+}
+
+fn default_group() -> String {
+    "general".to_string()
+}
+
+fn default_sort_by() -> String {
+    "latestDeadline".to_string()
+}
+
+fn default_page() -> i32 {
+    1
+}
+
 /// The main MCP server implementation for Kaggle API integration.
 /// 
 /// This server provides tools for interacting with the Kaggle API through
@@ -99,9 +139,75 @@ impl KaggleMcpServer {
             Err(e) => Err(McpError::internal_error(e.to_string(), None)),
         }
     }
+
+    /// Lists available Kaggle competitions with filtering and sorting options.
+    /// 
+    /// This tool allows users to browse and search for Kaggle competitions.
+    /// You can filter by category, group, search terms, and sort the results.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `params` - Competition listing parameters
+    /// 
+    /// # Returns
+    /// 
+    /// Returns a JSON array of competitions with their details including title, URL,
+    /// category, deadline, reward, team count, and whether the user has entered.
+    #[tool(description = "List available Kaggle competitions with filtering and sorting options")]
+    async fn competitions_list(
+        &self,
+        #[tool(aggr)] params: CompetitionsListParams,
+    ) -> std::result::Result<CallToolResult, McpError> {
+        let client = self.client.read().await;
+        
+        // Check if authenticated
+        if !client.is_authenticated().await {
+            return Err(McpError::internal_error(
+                "Not authenticated. Please use the authenticate tool first.",
+                None,
+            ));
+        }
+
+        match client
+            .list_competitions(
+                params.search,
+                params.category,
+                params.group,
+                params.sort_by,
+                params.page,
+            )
+            .await
+        {
+            Ok(competitions) => {
+                let result: Vec<serde_json::Value> = competitions
+                    .into_iter()
+                    .map(|comp| {
+                        serde_json::json!({
+                            "ref": comp.ref_,
+                            "title": comp.title,
+                            "url": comp.url,
+                            "category": comp.category,
+                            "deadline": comp.deadline.map(|d| d.to_rfc3339()),
+                            "reward": comp.reward,
+                            "teamCount": comp.team_count,
+                            "userHasEntered": comp.user_has_entered,
+                            "description": comp.description,
+                        })
+                    })
+                    .collect();
+                
+                Ok(CallToolResult::success(vec![Content::text(
+                    serde_json::to_string_pretty(&result).unwrap(),
+                )]))
+            }
+            Err(e) => Err(McpError::internal_error(
+                format!("Error listing competitions: {}", e),
+                None,
+            )),
+        }
+    }
 }
 
-#[tool(tool_box)]
 impl ServerHandler for KaggleMcpServer {
     fn get_info(&self) -> ServerInfo {
         ServerInfo {

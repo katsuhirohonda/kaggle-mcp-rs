@@ -30,14 +30,14 @@ Kaggle APIをMCP (Model Context Protocol)経由でClaude AIに接続するRust�
 ### 3. コンペティション機能 (中優先度)
 
 - [ ] **コンペティションツール (8ツール)**
-  - [ ] `competitions_list`: コンペティション一覧
+  - [x] `competitions_list`: コンペティション一覧 ✅ (2025-01-06)
   - [ ] `competition_details`: 詳細情報取得
   - [ ] `competition_download_files`: ファイルダウンロード
   - [ ] `competition_list_files`: ファイル一覧
   - [ ] `competition_submissions`: 提出履歴
   - [ ] `competition_leaderboard`: リーダーボード
   - [ ] `competition_submit`: 新規提出
-  - [ ] 共通HTTP通信機能の実装
+  - [x] 共通HTTP通信機能の実装 ✅ (KaggleClient内に実装済み)
 
 ### 4. データセット機能 (中優先度)
 

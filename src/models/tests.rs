@@ -66,11 +66,13 @@ mod tests {
             reward: Some("$0".to_string()),
             team_count: 1000,
             user_has_entered: false,
+            description: Some("Predict survival on the Titanic".to_string()),
         };
 
         let json = serde_json::to_value(&competition).unwrap();
-        assert_eq!(json["ref_"], "titanic");
+        assert_eq!(json["ref"], "titanic");
         assert_eq!(json["title"], "Titanic - Machine Learning from Disaster");
+        assert_eq!(json["description"], "Predict survival on the Titanic");
     }
 
     #[test]
