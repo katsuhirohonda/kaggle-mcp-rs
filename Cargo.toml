@@ -11,6 +11,10 @@ readme = "README.md"
 keywords = ["kaggle", "mcp", "claude", "ai", "api"]
 categories = ["api-bindings", "command-line-utilities"]
 
+[[example]]
+name = "competitions_list"
+path = "examples/competitions_list.rs"
+
 [dependencies]
 rmcp = { version = "0.1", features = ["transport-io"] }
 rmcp-macros = "0.1"
